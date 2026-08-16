@@ -1,6 +1,6 @@
 [package]
 name = "budget-context"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.85"
 description = "Hierarchical resource budgets for concurrent Rust task trees"
@@ -11,6 +11,9 @@ repository = "https://github.com/thinkgrid-labs/budget-context"
 readme = "README.md"
 keywords = ["budget", "resource", "async", "agents", "quota"]
 categories = ["asynchronous", "concurrency"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [features]
 default = []

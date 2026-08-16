@@ -10,9 +10,11 @@
 </p>
 
 <p align="center">
+  <a href="https://crates.io/crates/budget-context"><img alt="crates.io" src="https://img.shields.io/crates/v/budget-context.svg?logo=rust"></a>
+  <a href="https://docs.rs/budget-context"><img alt="docs.rs" src="https://docs.rs/budget-context/badge.svg"></a>
+  <a href="https://github.com/thinkgrid-labs/budget-context/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/thinkgrid-labs/budget-context/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Rust 1.85 or newer" src="https://img.shields.io/badge/Rust-1.85%2B-CE412B?logo=rust&logoColor=white">
-  <img alt="Rust edition 2024" src="https://img.shields.io/badge/edition-2024-5B5B5B">
-  <img alt="MIT or Apache 2.0 licensed" src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-2F74C0">
+  <a href="./LICENSE-MIT"><img alt="MIT or Apache 2.0 licensed" src="https://img.shields.io/crates/l/budget-context.svg"></a>
   <img alt="Unsafe Rust forbidden" src="https://img.shields.io/badge/unsafe-forbidden-6F42C1">
   <img alt="Project status: early release" src="https://img.shields.io/badge/status-early%20release-E3A008">
 </p>
@@ -26,7 +28,7 @@ It is designed for AI agents, autonomous workflows, web crawlers, batch jobs,
 request-scoped quotas, and any Rust system where the total amount of work is
 unknown before execution begins.
 
-> **Project status:** early-stage `0.1.0`. The API may evolve before `1.0`.
+> **Project status:** early-stage `0.1.x`. The API may evolve before `1.0`.
 
 ## Contents
 
@@ -208,7 +210,7 @@ Enable the `tokio` feature:
 
 ```toml
 [dependencies]
-budget-context = { path = "../budget-context", features = ["tokio"] }
+budget-context = { version = "0.1", features = ["tokio"] }
 ```
 
 Then run a future until it completes, the budget is cancelled, or its effective
@@ -321,6 +323,7 @@ cargo fmt --all --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-features
 cargo test --no-default-features
+cargo hack check --feature-powerset --no-dev-deps
 cargo bench --all-features
 cargo doc --all-features --no-deps
 cargo package
@@ -330,7 +333,9 @@ cargo llvm-cov --all-features --workspace --fail-under-lines 95
 The test suite includes accounting, hierarchy, reservation, concurrency, Tokio,
 Serde, tracing, public API, property, and reduced Loom-model coverage. CI tests
 stable Rust on Linux, macOS, and Windows, checks the Rust 1.85 MSRV, runs both
-feature matrices, compiles benchmarks, and enforces a 95% line-coverage floor.
+feature matrices and every feature combination, guards the public API against
+SemVer regressions, compiles benchmarks and README examples, and enforces a 95%
+line-coverage floor.
 
 Contributions are welcome while the API is being shaped. Please include tests
 for semantic changes and preserve the invariants in [DESIGN.md](./DESIGN.md).

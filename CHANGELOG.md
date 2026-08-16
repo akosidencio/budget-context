@@ -6,7 +6,7 @@ The project follows [Semantic Versioning](https://semver.org/). Until `1.0`,
 minor versions may introduce API changes; patch versions remain compatible with
 their corresponding minor release.
 
-## [Unreleased]
+## [0.1.1] - August 17, 2026
 
 ### Changed
 

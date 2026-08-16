@@ -23,3 +23,10 @@ pub use error::{BudgetBuildError, BudgetError, ResourceError};
 pub use reservation::{Reservation, ReservationSet};
 pub use resource::{BudgetId, Resource};
 pub use snapshot::{BudgetSnapshot, Remaining, ResourceSnapshot};
+
+// Keep the README's Rust examples compiled without duplicating it in the
+// published API documentation. The README's Tokio example requires all
+// features, which is how the documentation test job invokes rustdoc.
+#[cfg(all(doctest, feature = "tokio"))]
+#[doc = include_str!("../README.md")]
+pub struct ReadmeDoctests;

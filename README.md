@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://crates.io/crates/budget-context"><img alt="crates.io" src="https://img.shields.io/crates/v/budget-context.svg?logo=rust"></a>
   <a href="https://docs.rs/budget-context"><img alt="docs.rs" src="https://docs.rs/budget-context/badge.svg"></a>
-  <a href="https://github.com/thinkgrid-labs/budget-context/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/thinkgrid-labs/budget-context/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/akosidencio/budget-context/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/akosidencio/budget-context/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Rust 1.85 or newer" src="https://img.shields.io/badge/Rust-1.85%2B-CE412B?logo=rust&logoColor=white">
   <a href="./LICENSE-MIT"><img alt="MIT or Apache 2.0 licensed" src="https://img.shields.io/crates/l/budget-context.svg"></a>
   <img alt="Unsafe Rust forbidden" src="https://img.shields.io/badge/unsafe-forbidden-6F42C1">

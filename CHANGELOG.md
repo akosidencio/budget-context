@@ -24,5 +24,5 @@ their corresponding minor release.
 - Single-resource and multi-resource RAII reservations.
 - Optional Tokio cancellation, deadlines, Serde, and tracing integrations.
 
-[Unreleased]: https://github.com/thinkgrid-labs/budget-context/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/thinkgrid-labs/budget-context/releases/tag/v0.1.0
+[Unreleased]: https://github.com/akosidencio/budget-context/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/akosidencio/budget-context/releases/tag/v0.1.0

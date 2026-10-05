@@ -132,7 +132,7 @@ fn empty_and_zero_only_reservation_sets_are_inert() {
     let (budget, tokens, _) = setup();
 
     let empty = budget.reserve_many([]).unwrap();
-    assert!(empty.amounts().is_empty());
+    assert_eq!(empty.amounts(), &std::collections::BTreeMap::new());
     empty.commit([]).unwrap();
 
     budget.reserve_many([]).unwrap().commit_all();

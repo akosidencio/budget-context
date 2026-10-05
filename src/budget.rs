@@ -443,10 +443,7 @@ impl BudgetBuilder {
             (None, child) => child,
         };
 
-        let id = NEXT_BUDGET_ID
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
-            .map(BudgetId)
-            .map_err(|_| BudgetBuildError::BudgetIdExhausted)?;
+        let id = next_budget_id()?;
 
         #[cfg(feature = "tokio")]
         let cancellation = self
@@ -481,6 +478,26 @@ impl BudgetBuilder {
 enum AccountingKind {
     Consumed,
     Reserved,
+}
+
+// A hand-written loop rather than `fetch_update`, which Rust 1.99 deprecates
+// in favour of `try_update`, unavailable at the 1.85 MSRV.
+fn next_budget_id() -> Result<BudgetId, BudgetBuildError> {
+    let mut current = NEXT_BUDGET_ID.load(Ordering::Relaxed);
+    loop {
+        let next = current
+            .checked_add(1)
+            .ok_or(BudgetBuildError::BudgetIdExhausted)?;
+        match NEXT_BUDGET_ID.compare_exchange_weak(
+            current,
+            next,
+            Ordering::Relaxed,
+            Ordering::Relaxed,
+        ) {
+            Ok(_) => return Ok(BudgetId(current)),
+            Err(actual) => current = actual,
+        }
+    }
 }
 
 fn lock_lineage(lineage: &[Arc<Node>]) -> Vec<MutexGuard<'_, NodeState>> {

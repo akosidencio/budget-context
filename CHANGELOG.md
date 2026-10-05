@@ -48,6 +48,9 @@ their corresponding minor release.
   label feature-gated items on docs.rs.
 - Exclude the README banner and CI configuration from the published package;
   crates.io loads README images from the repository.
+- Build warning-free on Rust 1.99, which deprecates `AtomicU64::fetch_update`.
+- The SemVer job compares against the latest crates.io release and infers the
+  release type from the crate version instead of hard-coding both.
 
 ## [0.1.1] - August 17, 2026
 

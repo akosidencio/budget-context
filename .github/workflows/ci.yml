@@ -86,10 +86,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # Baseline: the latest crates.io release. Release type: inferred from the
+      # Cargo.toml version, so 0.x minor bumps may break and patches may not.
       - uses: obi1kenobi/cargo-semver-checks-action@6b69fcf40e9b5fb17adeb57e4b6ecd020649a239 # v2
-        with:
-          baseline-version: 0.1.1
-          release-type: minor
 
   coverage:
     runs-on: ubuntu-latest

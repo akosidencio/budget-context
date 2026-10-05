@@ -57,9 +57,9 @@ underlying operation to the reserved maximum.
 
 For a reservation set:
 
-- omitted actual resources mean zero usage;
-- unknown resources and actual-entry overflow fail closed by consuming the
-  complete reservation set;
+- omitted actual resources and zero-quantity actual entries mean zero usage;
+- unknown resources with non-zero usage and actual-entry overflow fail closed
+  by consuming the complete reservation set;
 - valid resources reconcile atomically;
 - if several resources exceed their reservations, reconciliation occurs for
   all resources and the lexicographically first overage is returned.
@@ -70,6 +70,13 @@ For a reservation set:
 locks the lineage root-to-leaf and describes one consistent instant. It lists
 the union of resources limited anywhere in the lineage and resources observed
 in the selected node's subtree.
+
+## Features
+
+Features add behavior, never types. `BudgetError::Cancelled` and
+`BudgetSnapshot::cancelled` exist in every build; without `tokio`, the error is
+never returned and the field is always `false`. Public error enums and snapshot
+structs are `#[non_exhaustive]`.
 
 ## Tokio execution
 
@@ -85,7 +92,12 @@ cancels descendants; cancelling a child does not affect ancestors or siblings.
 ## Complexity and non-goals
 
 Accounting is `O(lineage depth × resource count)` and root contention
-serializes sibling operations. The crate intentionally does not provide:
+serializes sibling operations.
+
+Each node keeps an entry for every distinct resource ever charged in its
+subtree, and entries are never removed, so the root's memory grows with the
+number of distinct resource names. Use a fixed vocabulary of resources; do not
+derive names from unbounded input such as request identifiers. The crate intentionally does not provide:
 
 - distributed or durable quotas;
 - a billing ledger;

@@ -16,6 +16,7 @@ pub enum Remaining {
 /// A consistent read-only view of one resource at a budget node.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct ResourceSnapshot {
     /// The resource category.
     pub resource: Resource,
@@ -32,6 +33,7 @@ pub struct ResourceSnapshot {
 /// A consistent read-only view of a budget node.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct BudgetSnapshot {
     /// Process-local node identifier.
     pub id: BudgetId,
@@ -42,6 +44,7 @@ pub struct BudgetSnapshot {
     /// Saturating duration until the effective deadline.
     pub deadline_remaining: Option<Duration>,
     /// Whether cancellation has been requested for this node.
-    #[cfg(feature = "tokio")]
+    ///
+    /// Always `false` without the `tokio` feature.
     pub cancelled: bool,
 }

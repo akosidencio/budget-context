@@ -14,7 +14,7 @@
   <a href="https://docs.rs/budget-context"><img alt="docs.rs" src="https://docs.rs/budget-context/badge.svg"></a>
   <a href="https://github.com/akosidencio/budget-context/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/akosidencio/budget-context/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Rust 1.85 or newer" src="https://img.shields.io/badge/Rust-1.85%2B-CE412B?logo=rust&logoColor=white">
-  <a href="./LICENSE-MIT"><img alt="MIT or Apache 2.0 licensed" src="https://img.shields.io/crates/l/budget-context.svg"></a>
+  <a href="./LICENSE"><img alt="MIT licensed" src="https://img.shields.io/crates/l/budget-context.svg"></a>
   <img alt="Unsafe Rust forbidden" src="https://img.shields.io/badge/unsafe-forbidden-6F42C1">
   <img alt="Project status: early release" src="https://img.shields.io/badge/status-early%20release-E3A008">
 </p>
@@ -28,7 +28,7 @@ It is designed for AI agents, autonomous workflows, web crawlers, batch jobs,
 request-scoped quotas, and any Rust system where the total amount of work is
 unknown before execution begins.
 
-> **Project status:** early-stage `0.1.x`. The API may evolve before `1.0`.
+> **Project status:** early-stage `0.2.x`. The API may evolve before `1.0`.
 
 ## Contents
 
@@ -191,7 +191,9 @@ permit.commit([
 
 Acquisition and reconciliation are atomic across every requested resource and
 every node in the lineage. Duplicate entries are combined using checked
-arithmetic. Dropping `permit` without committing releases all reserved capacity.
+arithmetic. A zero-quantity entry reserves nothing but stays in the set, so
+usage reported for it is an overage. Dropping `permit` without committing
+releases all reserved capacity.
 
 ### Why overages fail closed
 
@@ -210,7 +212,7 @@ Enable the `tokio` feature:
 
 ```toml
 [dependencies]
-budget-context = { version = "0.1", features = ["tokio"] }
+budget-context = { version = "0.2", features = ["tokio"] }
 ```
 
 Then run a future until it completes, the budget is cancelled, or its effective
@@ -314,6 +316,10 @@ The included Criterion benchmarks cover:
 Use operation-level accounting rather than calling the crate for every byte or
 item in a very hot loop. No fairness guarantee is made between sibling tasks.
 
+Budgets keep an entry for every distinct resource name they have been charged,
+so define resources from a fixed vocabulary rather than from unbounded input
+such as request identifiers.
+
 ## Development
 
 The repository forbids unsafe Rust and checks all public documentation.
@@ -327,24 +333,23 @@ cargo hack check --feature-powerset --no-dev-deps
 cargo bench --all-features
 cargo doc --all-features --no-deps
 cargo package
+cargo deny --all-features check
 cargo llvm-cov --all-features --workspace --fail-under-lines 95
+RUSTFLAGS="--cfg budget_context_loom" cargo test --release --test loom_model
 ```
 
 The test suite includes accounting, hierarchy, reservation, concurrency, Tokio,
-Serde, tracing, public API, property, and reduced Loom-model coverage. CI tests
-stable Rust on Linux, macOS, and Windows, checks the Rust 1.85 MSRV, runs both
-feature matrices and every feature combination, guards the public API against
-SemVer regressions, compiles benchmarks and README examples, and enforces a 95%
-line-coverage floor.
+Serde, tracing, public API, and property coverage, plus a Loom model that
+explores every interleaving of the crate's own lineage locking. CI tests stable
+Rust on Linux, macOS, and Windows, checks the Rust 1.85 MSRV, runs both feature
+matrices and every feature combination, guards the public API against SemVer
+regressions, checks dependency licenses and advisories with `cargo deny`,
+compiles benchmarks and README examples, and enforces a 95% line-coverage
+floor.
 
 Contributions are welcome while the API is being shaped. Please include tests
 for semantic changes and preserve the invariants in [DESIGN.md](./DESIGN.md).
 
 ## License
 
-Licensed under either of:
-
-- [Apache License, Version 2.0](./LICENSE-APACHE)
-- [MIT License](./LICENSE-MIT)
-
-at your option.
+Licensed under the [MIT License](./LICENSE).

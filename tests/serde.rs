@@ -59,3 +59,10 @@ fn public_observation_and_error_types_round_trip() {
         snapshot
     );
 }
+
+#[test]
+fn resource_deserialization_rejects_empty_names() {
+    assert!(serde_json::from_str::<Resource>("\"\"").is_err());
+    let error = serde_json::from_str::<BudgetError>(r#"{"Overflow":{"resource":""}}"#);
+    assert!(error.is_err());
+}

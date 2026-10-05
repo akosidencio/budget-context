@@ -1,81 +1,113 @@
-//! Reduced Loom model of the root-first reservation algorithm.
+//! Loom model of the lineage locking protocol, run against the real crate.
+//!
+//! Run with:
+//!
+//! ```text
+//! RUSTFLAGS="--cfg budget_context_loom" cargo test --release --test loom_model
+//! ```
 
-use std::sync::Arc;
+#![cfg(budget_context_loom)]
 
-use loom::sync::Mutex;
+use budget_context::{Budget, Remaining, Resource};
 use loom::thread;
 
+fn tree(limit: u64) -> (Resource, Budget, Budget, Budget) {
+    let units = Resource::new("units").unwrap();
+    let root = Budget::builder()
+        .limit(units.clone(), limit)
+        .build()
+        .unwrap();
+    let left = root.child().build().unwrap();
+    let right = root.child().build().unwrap();
+    (units, root, left, right)
+}
+
+fn assert_within_limit(budget: &Budget, units: &Resource, limit: u64) {
+    let snapshot = budget.snapshot();
+    let usage = snapshot
+        .resources
+        .iter()
+        .find(|resource| &resource.resource == units)
+        .unwrap();
+    assert!(usage.consumed + usage.reserved <= limit);
+}
+
 #[test]
-fn root_locked_reservation_model_never_oversubscribes() {
+fn sibling_reservations_never_oversubscribe_the_root() {
     loom::model(|| {
-        let state = Arc::new(Mutex::new((0_u64, 0_u64)));
-        let handles: Vec<_> = (0..2)
-            .map(|_| {
-                let state = state.clone();
+        let (units, root, left, right) = tree(10);
+        let handles: Vec<_> = [left, right]
+            .into_iter()
+            .map(|child| {
+                let units = units.clone();
                 thread::spawn(move || {
-                    let mut state = state.lock().unwrap();
-                    if state.0 + state.1 + 8 <= 10 {
-                        state.1 += 8;
-                    }
+                    child
+                        .reserve(&units, 8)
+                        .map(|reservation| reservation.commit(8))
                 })
             })
             .collect();
-        for handle in handles {
-            handle.join().unwrap();
-        }
-        let state = state.lock().unwrap();
-        assert!(state.0 + state.1 <= 10);
+        let admitted = handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .filter(Result::is_ok)
+            .count();
+
+        assert_eq!(admitted, 1);
+        assert_eq!(root.remaining(&units), Remaining::Limited(2));
+        assert_within_limit(&root, &units, 10);
     });
 }
 
 #[test]
-fn reservation_release_racing_with_consume_preserves_the_limit() {
+fn release_racing_with_a_sibling_consume_preserves_the_limit() {
     loom::model(|| {
-        let state = Arc::new(Mutex::new((0_u64, 8_u64)));
-        let release_state = state.clone();
-        let release = thread::spawn(move || {
-            let mut state = release_state.lock().unwrap();
-            state.1 -= 8;
-        });
-        let consume_state = state.clone();
-        let consume = thread::spawn(move || {
-            let mut state = consume_state.lock().unwrap();
-            if state.0 + state.1 + 7 <= 10 {
-                state.0 += 7;
-            }
-        });
+        let (units, root, left, right) = tree(10);
+        let reservation = left.reserve(&units, 8).unwrap();
+
+        let release = thread::spawn(move || reservation.release());
+        let consume_units = units.clone();
+        let consume = thread::spawn(move || right.consume(&consume_units, 7).is_ok());
 
         release.join().unwrap();
-        consume.join().unwrap();
-        let state = state.lock().unwrap();
-        assert!(state.0 + state.1 <= 10);
-        assert_eq!(state.1, 0);
+        let consumed = consume.join().unwrap();
+
+        let expected = if consumed { 3 } else { 10 };
+        assert_eq!(root.remaining(&units), Remaining::Limited(expected));
+        assert_within_limit(&root, &units, 10);
     });
 }
 
 #[test]
-fn reservation_commit_racing_with_consume_preserves_the_limit() {
+fn commit_racing_with_a_sibling_consume_preserves_the_limit() {
     loom::model(|| {
-        let state = Arc::new(Mutex::new((0_u64, 8_u64)));
-        let commit_state = state.clone();
-        let commit = thread::spawn(move || {
-            let mut state = commit_state.lock().unwrap();
-            state.1 -= 8;
-            state.0 += 3;
-        });
-        let consume_state = state.clone();
-        let consume = thread::spawn(move || {
-            let mut state = consume_state.lock().unwrap();
-            if state.0 + state.1 + 7 <= 10 {
-                state.0 += 7;
-            }
-        });
+        let (units, root, left, right) = tree(10);
+        let reservation = left.reserve(&units, 8).unwrap();
+
+        let commit = thread::spawn(move || reservation.commit(3).unwrap());
+        let consume_units = units.clone();
+        let consume = thread::spawn(move || right.consume(&consume_units, 7).is_ok());
 
         commit.join().unwrap();
-        consume.join().unwrap();
-        let state = state.lock().unwrap();
-        assert!(state.0 + state.1 <= 10);
-        assert_eq!(state.1, 0);
-        assert!(state.0 == 3 || state.0 == 10);
+        let consumed = consume.join().unwrap();
+
+        let expected = if consumed { 0 } else { 7 };
+        assert_eq!(root.remaining(&units), Remaining::Limited(expected));
+        assert_within_limit(&root, &units, 10);
+    });
+}
+
+#[test]
+fn snapshots_observe_a_consistent_lineage() {
+    loom::model(|| {
+        let (units, root, left, _) = tree(10);
+        let reserve_units = units.clone();
+        let reserve = thread::spawn(move || left.reserve(&reserve_units, 4).unwrap().commit(4));
+
+        let observed = root.remaining(&units);
+        assert!(observed == Remaining::Limited(10) || observed == Remaining::Limited(6));
+
+        reserve.join().unwrap().unwrap();
+        assert_eq!(root.remaining(&units), Remaining::Limited(6));
     });
 }

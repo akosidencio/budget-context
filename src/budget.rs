@@ -1,8 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+#[cfg(not(budget_context_loom))]
+use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
+#[cfg(budget_context_loom)]
+use loom::sync::{Mutex, MutexGuard};
 #[cfg(feature = "tokio")]
 use tokio_util::sync::CancellationToken;
 
@@ -24,7 +29,6 @@ pub(crate) struct NodeState {
     pub(crate) usage: BTreeMap<Resource, Usage>,
 }
 
-#[derive(Debug)]
 pub(crate) struct Node {
     pub(crate) id: BudgetId,
     pub(crate) name: Option<Arc<str>>,
@@ -34,6 +38,36 @@ pub(crate) struct Node {
     pub(crate) deadline: Option<Instant>,
     #[cfg(feature = "tokio")]
     pub(crate) cancellation: CancellationToken,
+}
+
+impl fmt::Debug for Node {
+    // Report the parent by identifier; recursing into the full ancestry is
+    // unbounded in depth and output size.
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut debug = formatter.debug_struct("Node");
+        debug
+            .field("id", &self.id)
+            .field("name", &self.name)
+            .field("parent", &self.parent.as_ref().map(|parent| parent.id))
+            .field("limits", &self.limits)
+            .field("state", &self.state)
+            .field("deadline", &self.deadline);
+        #[cfg(feature = "tokio")]
+        debug.field("cancellation", &self.cancellation);
+        debug.finish()
+    }
+}
+
+impl Drop for Node {
+    // Unlink uniquely owned ancestors iteratively. The default recursive drop
+    // overflows the stack, aborting the process, for lineages a few thousand
+    // nodes deep.
+    fn drop(&mut self) {
+        let mut parent = self.parent.take();
+        while let Some(node) = parent {
+            parent = Arc::into_inner(node).and_then(|mut node| node.parent.take());
+        }
+    }
 }
 
 /// A cloneable handle to one node in a hierarchical resource budget.
@@ -114,7 +148,9 @@ impl Budget {
     /// Atomically reserves several resources, combining duplicate entries.
     ///
     /// The input is canonicalized by resource name. Overflow or exhaustion
-    /// changes no accounting state.
+    /// changes no accounting state. Zero-quantity entries reserve nothing but
+    /// remain part of the set, so [`ReservationSet::commit`] treats usage
+    /// reported for them as an overage.
     ///
     /// # Errors
     ///
@@ -128,9 +164,6 @@ impl Budget {
         let mut requests = BTreeMap::<Resource, u64>::new();
         let mut overflows = BTreeSet::new();
         for (resource, amount) in resources {
-            if amount == 0 {
-                continue;
-            }
             let current = requests.entry(resource.clone()).or_default();
             if let Some(sum) = current.checked_add(amount) {
                 *current = sum;
@@ -141,7 +174,7 @@ impl Budget {
         if let Some(resource) = overflows.into_iter().next() {
             return Err(BudgetError::Overflow { resource });
         }
-        if !requests.is_empty() {
+        if requests.values().any(|amount| *amount != 0) {
             self.ensure_active()?;
             self.apply(&requests, AccountingKind::Reserved)?;
             #[cfg(feature = "tracing")]
@@ -204,6 +237,8 @@ impl Budget {
                 .map(|deadline| deadline.saturating_duration_since(Instant::now())),
             #[cfg(feature = "tokio")]
             cancelled: leaf.cancellation.is_cancelled(),
+            #[cfg(not(feature = "tokio"))]
+            cancelled: false,
         }
     }
 
@@ -251,8 +286,9 @@ impl Budget {
         let lineage = self.lineage();
         let mut guards = lock_lineage(&lineage);
 
+        let nonzero = || requests.iter().filter(|(_, amount)| **amount != 0);
         for (index, node) in lineage.iter().enumerate() {
-            for (resource, amount) in requests {
+            for (resource, amount) in nonzero() {
                 let usage = guards[index]
                     .usage
                     .get(resource)
@@ -280,7 +316,7 @@ impl Budget {
         }
 
         for guard in &mut guards {
-            for (resource, amount) in requests {
+            for (resource, amount) in nonzero() {
                 let usage = guard.usage.entry(resource.clone()).or_default();
                 match kind {
                     AccountingKind::Consumed => usage.consumed += amount,

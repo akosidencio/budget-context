@@ -1,16 +1,18 @@
 [package]
 name = "budget-context"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Hierarchical resource budgets for concurrent Rust task trees"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 documentation = "https://docs.rs/budget-context"
 homepage = "https://github.com/akosidencio/budget-context"
 repository = "https://github.com/akosidencio/budget-context"
 readme = "README.md"
 keywords = ["budget", "resource", "async", "agents", "quota"]
 categories = ["asynchronous", "concurrency"]
+# crates.io loads README images from the repository, not the package.
+exclude = ["/assets/", "/.github/"]
 
 [package.metadata.docs.rs]
 all-features = true
@@ -25,12 +27,15 @@ tracing = ["dep:tracing"]
 serde = { version = "1", features = ["derive", "rc"], optional = true }
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "time"], optional = true }
-tokio-util = { version = "0.7", features = ["rt"], optional = true }
+tokio-util = { version = "0.7", optional = true }
 tracing = { version = "0.1", optional = true }
+
+# Only for the Loom model of the locking protocol; see tests/loom_model.rs.
+[target.'cfg(budget_context_loom)'.dependencies]
+loom = "0.7"
 
 [dev-dependencies]
 criterion = "0.7"
-loom = "0.7"
 proptest = "1"
 serde_json = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
@@ -43,6 +48,7 @@ harness = false
 [lints.rust]
 missing_docs = "deny"
 unsafe_code = "forbid"
+unexpected_cfgs = { level = "deny", check-cfg = ["cfg(budget_context_loom)"] }
 
 [lints.clippy]
 all = "deny"

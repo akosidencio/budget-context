@@ -7,8 +7,12 @@ use crate::ResourceError;
 ///
 /// Names are non-empty, case-sensitive UTF-8 strings. The crate does not
 /// normalize them or attach meaning to namespace separators.
+///
+/// Budgets retain an entry for every distinct resource charged against them,
+/// so resources should come from a fixed vocabulary rather than unbounded
+/// input.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Resource(Arc<str>);
 
 impl Resource {
@@ -29,6 +33,20 @@ impl Resource {
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+// Deserialization goes through `Resource::new` so that serialized input cannot
+// produce an empty name. The private mirror keeps the derived wire format.
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Resource {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(serde::Deserialize)]
+        #[serde(rename = "Resource")]
+        struct Unvalidated(Arc<str>);
+
+        let Unvalidated(name) = Unvalidated::deserialize(deserializer)?;
+        Self::new(name).map_err(serde::de::Error::custom)
     }
 }
 

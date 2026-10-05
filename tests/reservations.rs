@@ -223,3 +223,42 @@ fn actual_entry_overflow_fails_closed() {
     );
     assert_eq!(budget.remaining(&units), Remaining::Limited(0));
 }
+
+#[test]
+fn zero_quantity_entries_are_part_of_the_set_but_reserve_nothing() {
+    let (budget, tokens, requests) = setup();
+    let permit = budget
+        .reserve_many([(&tokens, 20), (&requests, 0)])
+        .unwrap();
+    assert_eq!(permit.amounts().get(&requests), Some(&0));
+    assert_eq!(budget.remaining(&requests), Remaining::Limited(10));
+    assert!(
+        budget
+            .snapshot()
+            .resources
+            .iter()
+            .all(|resource| resource.reserved == 0 || resource.resource == tokens)
+    );
+
+    permit.commit([(&tokens, 5), (&requests, 0)]).unwrap();
+    assert_eq!(budget.remaining(&tokens), Remaining::Limited(95));
+    assert_eq!(budget.remaining(&requests), Remaining::Limited(10));
+}
+
+#[test]
+fn zero_quantity_overage_matches_single_reservations() {
+    let (budget, tokens, _) = setup();
+    let unknown = Resource::new("unknown").unwrap();
+    let permit = budget.reserve_many([(&tokens, 0)]).unwrap();
+
+    assert_eq!(
+        permit.commit([(&tokens, 5), (&unknown, 0)]),
+        Err(BudgetError::ReservationExceeded {
+            resource: tokens.clone(),
+            reserved: 0,
+            actual: 5,
+            unaccounted: 5,
+        })
+    );
+    assert_eq!(budget.remaining(&tokens), Remaining::Limited(100));
+}

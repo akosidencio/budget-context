@@ -115,3 +115,25 @@ fn children_inherit_or_shorten_but_never_extend_deadlines() {
     }
     assert!(shortened.snapshot().deadline_remaining.unwrap() <= Duration::from_secs(1));
 }
+
+#[test]
+fn dropping_a_deep_lineage_does_not_overflow_the_stack() {
+    // A Tokio worker's default stack; the recursive drop overflowed it near
+    // 10,000 nodes.
+    std::thread::Builder::new()
+        .stack_size(2 * 1024 * 1024)
+        .spawn(|| {
+            let tokens = Resource::new("tokens").unwrap();
+            let root = Budget::builder().limit(tokens.clone(), 10).build().unwrap();
+            let mut leaf = root.clone();
+            for _ in 0..100_000 {
+                leaf = leaf.child().build().unwrap();
+            }
+            assert!(format!("{leaf:?}").len() < 1024);
+            drop(leaf);
+            root.consume(&tokens, 10).unwrap();
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}

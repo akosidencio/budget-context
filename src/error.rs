@@ -5,6 +5,7 @@ use crate::{BudgetId, Resource};
 /// Error returned when constructing a resource.
 #[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub enum ResourceError {
     /// Resource names must contain at least one byte.
     #[error("resource name cannot be empty")]
@@ -14,6 +15,7 @@ pub enum ResourceError {
 /// Error returned when building a budget node.
 #[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub enum BudgetBuildError {
     /// A resource limit was configured more than once on the same node.
     #[error("duplicate limit for resource {resource}")]
@@ -38,6 +40,7 @@ pub enum BudgetBuildError {
 /// Error returned by accounting and execution operations.
 #[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub enum BudgetError {
     /// A limit in the budget lineage rejected an operation.
     #[error(
@@ -94,7 +97,9 @@ pub enum BudgetError {
     DeadlineExceeded,
 
     /// The budget was cancelled.
-    #[cfg(feature = "tokio")]
+    ///
+    /// Only produced with the `tokio` feature, but always present so that
+    /// enabling a feature never changes this type.
     #[error("budget cancelled")]
     Cancelled,
 }

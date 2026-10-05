@@ -75,14 +75,8 @@ impl Reservation {
     }
 
     /// Explicitly releases the complete reservation.
-    pub fn release(mut self) {
-        if self.active {
-            let reserved = BTreeMap::from([(self.resource.clone(), self.amount)]);
-            self.budget.release_reserved(&reserved);
-            self.active = false;
-            self.budget
-                .trace_event("release", &self.resource, self.amount);
-        }
+    pub fn release(self) {
+        drop(self);
     }
 }
 
@@ -109,7 +103,7 @@ pub struct ReservationSet {
 
 impl ReservationSet {
     pub(crate) fn new(budget: Budget, amounts: BTreeMap<Resource, u64>) -> Self {
-        let active = !amounts.is_empty();
+        let active = amounts.values().any(|amount| *amount != 0);
         Self {
             budget,
             amounts,
@@ -118,6 +112,8 @@ impl ReservationSet {
     }
 
     /// Returns the canonical, resource-sorted reservation amounts.
+    ///
+    /// Resources requested with a zero quantity are listed with a zero amount.
     #[must_use]
     pub fn amounts(&self) -> &BTreeMap<Resource, u64> {
         &self.amounts
@@ -126,9 +122,12 @@ impl ReservationSet {
     /// Reconciles actual usage atomically and releases unused capacity.
     ///
     /// Duplicate actual entries are combined with checked arithmetic. Omitted
-    /// resources have zero actual usage. Unknown resources and arithmetic
-    /// overflow fail closed by converting the full reservation set to consumed
-    /// capacity before returning an error.
+    /// resources and zero-quantity entries have zero actual usage. Resources
+    /// requested with a zero quantity are part of the set, so usage reported
+    /// for them is an overage, as for a zero-quantity [`Reservation`].
+    /// Resources never requested with non-zero usage and arithmetic overflow
+    /// fail closed by converting the full reservation set to consumed capacity
+    /// before returning an error.
     ///
     /// # Errors
     ///
@@ -142,6 +141,9 @@ impl ReservationSet {
         let mut actuals = BTreeMap::<Resource, u64>::new();
         let mut overflows = BTreeSet::new();
         for (resource, amount) in actual {
+            if amount == 0 {
+                continue;
+            }
             let current = actuals.entry(resource.clone()).or_default();
             if let Some(sum) = current.checked_add(amount) {
                 *current = sum;
@@ -170,8 +172,10 @@ impl ReservationSet {
                 (resource.clone(), actual.min(*reserved))
             })
             .collect();
-        self.budget.commit_reserved(&self.amounts, &accounted);
-        self.active = false;
+        if self.active {
+            self.budget.commit_reserved(&self.amounts, &accounted);
+            self.active = false;
+        }
         for (resource, amount) in &accounted {
             self.budget.trace_event("commit", resource, *amount);
         }
@@ -196,14 +200,8 @@ impl ReservationSet {
     }
 
     /// Explicitly releases the complete reservation set.
-    pub fn release(mut self) {
-        if self.active {
-            self.budget.release_reserved(&self.amounts);
-            self.active = false;
-            for (resource, amount) in &self.amounts {
-                self.budget.trace_event("release", resource, *amount);
-            }
-        }
+    pub fn release(self) {
+        drop(self);
     }
 
     fn commit_all_inner(&mut self) {

@@ -135,7 +135,7 @@ fn reserve_many_overflow_is_deterministic_and_atomic() {
         }
     );
     assert_eq!(budget.remaining(&alpha), Remaining::Unlimited);
-    assert!(budget.snapshot().resources.is_empty());
+    assert_eq!(budget.snapshot().resources, Vec::new());
 }
 
 #[test]

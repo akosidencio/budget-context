@@ -28,8 +28,6 @@ It is designed for AI agents, autonomous workflows, web crawlers, batch jobs,
 request-scoped quotas, and any Rust system where the total amount of work is
 unknown before execution begins.
 
-> **Project status:** early-stage `0.2.x`. The API may evolve before `1.0`.
-
 ## Contents
 
 - [Why budget-context?](#why-budget-context)
